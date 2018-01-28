@@ -500,6 +500,8 @@ def removeFWfiles(dir):
         filelist=glob.glob('/firmware/3dr/*.*')
     elif dir == 'green':
         filelist=glob.glob('/firmware/green/*.*')
+    elif dir == 'main':
+        filelist=glob.glob('/firmware/*.px4')
     for file in filelist:
         os.remove(file)
 
@@ -509,21 +511,41 @@ def load(firmware_path):
 
     dev_name = create_usb_serial()
     if dev_name is None:
+        logger.info("Failed to open USB serial port to load firmware")
         return False
 
     # load firmware
     start_us = clock.gettime_us(clock.CLOCK_MONOTONIC)
-    ret = subprocess.call(["px_uploader.py",
+    uploader = subprocess.Popen(["px_uploader.py",
                            "--port=%s" % dev_pattern_usb,
                            firmware_path])
-    if ret != 0:
+
+    ## Start a 2 minute timeout for loading firmware in case it fails
+    delay = 1.0
+    timeout = int(120 / delay)                      
+    while uploader.poll() is None and timeout > 0:
+        time.sleep(delay)
+        timeout -= delay                       
+
+    if uploader.poll() is None:
+        #px_uploader.py failed to complete, probably hosed
         loaded = False
-        logger.error("loading firmware")
-    else:
+        logger.info("Firmware loading failed due to timeout.")
+    elif uploader.returncode != 0:
+        #px_uploader.py returned error, failed to load due to error
+        loaded = False
+        logger.info("Firmware loading failed due to error.")
+    elif uploader.returncode == 0:
+        #px_uploader succeeded
         loaded = True
         end_us = clock.gettime_us(clock.CLOCK_MONOTONIC)
         logger.info("firmware loaded in %0.3f sec",
                     (end_us - start_us) / 1000000.0)
+    else:
+        #Unsure if loading FW worked or not, so we'll proceed
+        loaded = True
+        end_us = clock.gettime_us(clock.CLOCK_MONOTONIC)
+        logger.info("firmware may have loaded. Checking for HB")
 
     if loaded:
         # firmware loaded; wait for heartbeat on telemetry port
@@ -583,6 +605,7 @@ def load(firmware_path):
         ### while !hb_quit
         if hb is None:
             logger.error("timeout waiting for heartbeat after loading")
+            loaded = False
         else:
             logger.info("heartbeat after loading in %0.3f sec", hb_time_us / 1000000.0)
 
@@ -816,8 +839,8 @@ def initialize():
                 rebootPixhawk()
                 logger.info("...Reset complete")
         else:
-            print "pixhawk: ERROR loading firmware"
-            logger.error("pixhawk status: can't load")
+            logger.info("Firmware loading failed. Deleting firmware file from directory")
+            removeFWfiles("main")
 
     os.system("rm -f /log/.factory")
 
