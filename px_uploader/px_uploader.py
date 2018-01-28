@@ -657,7 +657,7 @@ def main():
 
             for port in portlist:
 
-                # print("Trying %s" % port)
+                print("Trying %s" % port)
 
                 # create an uploader attached to the port
                 try:
@@ -713,21 +713,15 @@ def main():
                 try:
                     # ok, we have a bootloader, try flashing it
                     up.upload(fw, force=args.force, boot_delay=args.boot_delay)
+                    print("Loaded firmware. Closing port and exiting px_uploader.")
+                    up.close()      # Close the USB port
+                    sys.exit(0)     # Exit with zero due to success
 
-                except RuntimeError as ex:
-                    # print the error
-                    print("\nERROR: %s" % ex.args)
+                except Exception as e:
+                    print("\nERROR: %s; Closing port and exiting px_uploader" % e)
+                    up.close()      # Close the USB port
+                    sys.exit(1)     # Exit with non-zero due to error
 
-                except IOError:
-                    up.close()
-                    continue
-
-                finally:
-                    # always close the port
-                    up.close()
-
-                # we could loop here if we wanted to wait for more boards...
-                sys.exit(0)
 
             # Delay retries to < 20 Hz to prevent spin-lock from hogging the CPU
             time.sleep(0.05)
