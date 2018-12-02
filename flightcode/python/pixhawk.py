@@ -76,10 +76,10 @@ def create_usb_serial(timeout=5):
     end_us = clock.gettime_us(clock.CLOCK_MONOTONIC)
     dev_name = glob_file(dev_pattern_usb)
     if os.path.exists(dev_name):
-        logger.debug("%s created in %0.3f sec",
+        logger.info("%s created in %0.3f sec",
                      dev_name, (end_us - start_us) / 1000000.0)
     else:
-        logger.error("creating %s", dev_pattern_usb)
+        logger.info("creating %s", dev_pattern_usb)
         usb.disable()
         usb.uninit()
     return dev_name
