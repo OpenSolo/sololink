@@ -70,6 +70,7 @@ def create_usb_serial(timeout=5):
     start_us = clock.gettime_us(clock.CLOCK_MONOTONIC)
     now_us = start_us
     timeout_us = timeout * 1000000
+    
     while glob_file(dev_pattern_usb) is None and (now_us - start_us) < timeout_us:
         now_us = clock.gettime_us(clock.CLOCK_MONOTONIC)
         time.sleep(0.001)
@@ -79,7 +80,7 @@ def create_usb_serial(timeout=5):
         logger.info("%s created in %0.3f sec",
                      dev_name, (end_us - start_us) / 1000000.0)
     else:
-        logger.info("creating %s", dev_pattern_usb)
+        logger.info("error creating %s", dev_pattern_usb)
         usb.disable()
         usb.uninit()
     return dev_name
@@ -501,7 +502,7 @@ def removeFWfiles(dir):
     elif dir == 'green':
         filelist=glob.glob('/firmware/green/*.*')
     elif dir == 'main':
-        filelist=glob.glob('/firmware/*.px4')
+        filelist=glob.glob('/firmware/*.px4') + glob.glob('/firmware/*.apj')
     for file in filelist:
         os.remove(file)
 
@@ -663,7 +664,7 @@ def verify_usb():
 # full_path is the full path to the file, or None if no file
 # if full_path is not None, versions is a dictionary of version info
 def find_firmware(dir):
-    files = glob.glob("%s/*.px4" % dir)
+    files = glob.glob("%s/*.apj" % dir) + glob.glob("%s/*.px4" % dir)
     if len(files) == 0:
         return (None, None)
     # read git hashes
@@ -824,7 +825,7 @@ def initialize():
     elif os.path.exists("/log/.factory") and (baud is not None) and verify_usb():
         logger.info("pixhawk: factory - not loading firmware")
     else:
-        print "pixhawk: loading firmware"
+        print "pixhawk: loading firmware %s:", firmware_path
         logger.info("%s:", firmware_path)
         for v in firmware_version:
             logger.info("%-20s %s", v, firmware_version[v])
